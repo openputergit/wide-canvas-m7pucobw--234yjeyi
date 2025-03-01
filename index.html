@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Donor DApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .neo-input, .neo-select {
+            background: #e0e5ec;
+            box-shadow: 9px 9px 16px rgb(163,177,198,0.6), 
+                       -9px -9px 16px rgba(255,255,255, 0.5);
+        }
+        
+        .neo-button {
+            background: #e0e5ec;
+            box-shadow: 9px 9px 16px rgb(163,177,198,0.6), 
+                       -9px -9px 16px rgba(255,255,255, 0.5);
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .neo-button:hover:not([disabled]) {
+            box-shadow: inset 9px 9px 16px rgb(163,177,198,0.6), 
+                       inset -9px -9px 16px rgba(255,255,255, 0.5);
+        }
+        
+        .neo-container {
+            background: #e0e5ec;
+            box-shadow: 9px 9px 16px rgb(163,177,198,0.6), 
+                       -9px -9px 16px rgba(255,255,255, 0.5);
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(224, 229, 236, 0.9);
+            padding: 2rem;
+            border-radius: 1rem;
+        }
+
+        .tab-active {
+            box-shadow: inset 9px 9px 16px rgb(163,177,198,0.6), 
+                       inset -9px -9px 16px rgba(255,255,255, 0.5);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-[#e0e5ec] p-4">
+    <div class="loading">
+        <div class="text-center space-y-3">
+            <div class="animate-spin rounded-full h-8 w-8  border-b-2 border-red-700 mx-auto"></div>
+            <p class="text-gray-700" id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <div class="toast neo-container p-4 rounded-lg" id="toast">
+        <p class="text-gray-700" id="toastMessage"></p>
+    </div>
+
+    <div class="max-w-4xl mx-auto">
+        <div class="neo-container p-6 rounded-2xl mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-700">Blood Donor DApp</h1>
+                <button id="connectWallet" 
+                        class="neo-button px-4 py-2 rounded-lg text-red-700 font-semibold">
+                    Connect Wallet
+                </button>
+            </div>
+
+            <div class="flex gap-4 mb-6">
+                <button class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold tab-active" onclick="switchTab('register')">
+                    Register Donor
+                </button>
+                <button class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold" onclick="switchTab('history')">
+                    Donation History
+                </button>
+                <button class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold" onclick="switchTab('record')">
+                    Record Donation
+                </button>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="registerTab">
+                <form id="donorForm" class="space-y-6">
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="id">Donor ID</label>
+                        <input type="number" id="id" required
+                            class="neo-input w-full px-4 py-3 rounded-lg outline-none text-gray-700"
+                            placeholder="Enter your ID">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="name">Full Name</label>
+                        <input type="text" id="name" required
+                            class="neo-input w-full px-4 py-3 rounded-lg outline-none text-gray-700"
+                            placeholder="Enter your full name">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="bloodType">Blood Type</label>
+                        <select id="bloodType" required
+                            class="neo-select w-full px-4 py-3 rounded-lg outline-none text-gray-700">
+                            <option value="">Select Blood Type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="submit" id="registerDatabase"
+                            class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold">
+                            Register to Database
+                        </button>
+                        <button type="button" id="registerBlockchain"
+                            class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold">
+                            Register on Blockchain
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- History Section -->
+            <div id="historyTab" class="hidden">
+                <form id="historyForm" class="space-y-6 mb-6">
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="searchId">Search Donor ID</label>
+                        <div class="flex gap-4">
+                            <input type="number" id="searchId" required
+                                class="neo-input flex-1 px-4 py-3 rounded-lg outline-none text-gray-700"
+                                placeholder="Enter donor ID">
+                            <button type="submit" 
+                                class="neo-button px-6 py-3 rounded-lg text-red-700 font-semibold">
+                                Search Database
+                            </button>
+                            <button type="button" id="searchBlockchain"
+                                class="neo-button px-6 py-3 rounded-lg text-red-700 font-semibold">
+                                Search Blockchain
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div id="historyResults" class="space-y-4">
+                    <!-- History results will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Record Donation Section -->
+            <div id="recordTab" class="hidden">
+                <form id="donationForm" class="space-y-6">
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="donorIdForDonation">Donor ID</label>
+                        <input type="number" id="donorIdForDonation" required
+                            class="neo-input w-full px-4 py-3 rounded-lg outline-none text-gray-700"
+                            placeholder="Enter donor ID">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="donationDate">Donation Date</label>
+                        <input type="date" id="donationDate" required
+                            class="neo-input w-full px-4 py-3 rounded-lg outline-none text-gray-700">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="bloodUnitId">Blood Unit ID</label>
+                        <input type="text" id="bloodUnitId" required
+                            class="neo-input w-full px-4 py-3 rounded-lg outline-none text-gray-700"
+                            placeholder="Enter blood unit ID">
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="submit" id="recordDatabase"
+                            class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold">
+                            Record to Database
+                        </button>
+                        <button type="button" id="recordBlockchain"
+                            class="neo-button flex-1 py-3 rounded-lg text-red-700 font-semibold">
+                            Record on Blockchain
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let provider, signer, donorContract, donationContract;
+        const donorContractAddress = '0x0813d4a158d06784FDB48323344896B2B1aa0F85';
+        const donationContractAddress = '0xE5f2A565Ee0Aa9836B4c80a07C8b32aAd7978e22';
+        
+        // Your contract ABIs from the provided details
+        const donorContractABI = [/* Your donor contract ABI */];
+        const donationContractABI = [/* Your donation contract ABI */];
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    showToast('Please install MetaMask!', 'error');
+                    return;
+                }
+
+                showLoading('Connecting wallet...');
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                
+                donorContract = new ethers.Contract(donorContractAddress, donorContractABI, signer);
+                donationContract = new ethers.Contract(donationContractAddress, donationContractABI, signer);
+
+                const address = await signer.getAddress();
+                document.getElementById('connectWallet').textContent = 
+                    address.slice(0, 6) + '...' + address.slice(-4);
+
+                const network = await provider.getNetwork();
+                if (network.chainId !== 1) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x1' }],
+                        });
+                    } catch (error) {
+                        showToast('Please switch to Ethereum Mainnet', 'error');
+                    }
+                }
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showLoading(message) {
+            document.getElementById('loadingText').textContent = message;
+            document.querySelector('.loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            toast.style.display = 'block';
+            toast.style.backgroundColor = type === 'error' ? '#FEE2E2' : '#E0E5EC';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        function switchTab(tab) {
+            const registerTab = document.getElementById('registerTab');
+            const historyTab = document.getElementById('historyTab');
+            const recordTab = document.getElementById('recordTab');
+            const tabs = document.querySelectorAll('.neo-button');
+            
+            tabs.forEach(t => t.classList.remove('tab-active'));
+            
+            switch(tab) {
+                case 'register':
+                    registerTab.classList.remove('hidden');
+                    historyTab.classList.add('hidden');
+                    recordTab.classList.add('hidden');
+                    tabs[0].classList.add('tab-active');
+                    break;
+                case 'history':
+                    registerTab.classList.add('hidden');
+                    historyTab.classList.remove('hidden');
+                    recordTab.classList.add('hidden');
+                    tabs[1].classList.add('tab-active');
+                    break;
+                case 'record':
+                    registerTab.classList.add('hidden');
+                    historyTab.classList.add('hidden');
+                    recordTab.classList.remove('hidden');
+                    tabs[2].classList.add('tab-active');
+                    break;
+            }
+        }
+
+        // Initialize all event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            
+            // Initialize other event listeners for forms and buttons
+            // Add your form submission handlers here
+        });
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
